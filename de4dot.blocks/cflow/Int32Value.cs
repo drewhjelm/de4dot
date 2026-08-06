@@ -345,6 +345,13 @@ namespace de4dot.blocks.cflow {
 			}
 			if ((ReferenceEquals(a, b) && a.IsNonZero()) || b.HasValue(1))
 				return Zero;
+			// Power-of-two modulus: (uint)a % (uint)b == (uint)a & (uint)(b - 1)
+			// And() propagates partial bit-validity correctly.
+			if (b.AllBitsValid()) {
+				uint bu = (uint)b.Value;
+				if (bu != 0 && (bu & (bu - 1)) == 0)
+					return And(a, new Int32Value((int)(bu - 1)));
+			}
 			return CreateUnknown();
 		}
 
@@ -448,6 +455,10 @@ namespace de4dot.blocks.cflow {
 		public static Int32Value Shl(Int32Value a, Int32Value b) {
 			if (b.HasUnknownBits())
 				return CreateUnknown();
+			// A count outside 0..31 is undefined in CIL, so nothing about the result is knowable.
+			// The unsigned compare folds the negative case into the same test.
+			if ((uint)b.Value >= sizeof(int) * 8)
+				return CreateUnknown();
 			if (b.Value == 0)
 				return a;
 			int shift = b.Value;
@@ -457,6 +468,8 @@ namespace de4dot.blocks.cflow {
 
 		public static Int32Value Shr(Int32Value a, Int32Value b) {
 			if (b.HasUnknownBits())
+				return CreateUnknown();
+			if ((uint)b.Value >= sizeof(int) * 8)
 				return CreateUnknown();
 			if (b.Value == 0)
 				return a;
@@ -469,6 +482,8 @@ namespace de4dot.blocks.cflow {
 
 		public static Int32Value Shr_Un(Int32Value a, Int32Value b) {
 			if (b.HasUnknownBits())
+				return CreateUnknown();
+			if ((uint)b.Value >= sizeof(int) * 8)
 				return CreateUnknown();
 			if (b.Value == 0)
 				return a;
