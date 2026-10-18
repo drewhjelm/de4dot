@@ -15,6 +15,16 @@
     <OutputPath>$(MSBuildThisFileDirectory)\$(Configuration)</OutputPath>
     <DisableOutOfProcTaskHost>true</DisableOutOfProcTaskHost>
     <DnlibVersion>4.5.0</DnlibVersion>
+    <!-- Lock every resolved package (with its content hash). The .NET Framework solution resolves a
+         different graph, so it gets its own lock file. CI restores in locked mode. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <NuGetLockFilePath Condition=" '$(De4DotNetFramework)' == 'true' ">packages.netframework.lock.json</NuGetLockFilePath>
+    <RestoreLockedMode Condition=" '$(GITHUB_ACTIONS)' == 'true' Or '$(ContinuousIntegrationBuild)' == 'true' ">true</RestoreLockedMode>
+  </PropertyGroup>
+  <!-- Fixed RID set (all configurations) so packages.lock.json is the same on every host:
+       CI on Windows, Docker on x64/arm64, Debug and Release. -->
+  <PropertyGroup Condition="'$(De4DotNetFramework)' != 'true'">
+    <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Release' And '$(De4DotNetFramework)' != 'true'">
     <SelfContained>true</SelfContained>

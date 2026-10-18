@@ -1,7 +1,7 @@
 # ==============================================================================
 # STAGE 1: Build BeaEngine (Native Library for ConfuserEx control flow cleaning)
 # ==============================================================================
-FROM ubuntu:22.04 AS beaengine-builder
+FROM ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956 AS beaengine-builder
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
@@ -28,21 +28,21 @@ RUN mkdir -p /app && \
 # ==============================================================================
 # STAGE 2: Build de4dotEx (.NET 10.0 Cross-Platform Release)
 # ==============================================================================
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS dotnet-builder
+FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:0d99ebf1ccad15037b5c98c9fe8979d6b8dbac23812feae2277a0b277b5c5ffa AS dotnet-builder
 WORKDIR /src
 
 # Copy all files to build
 COPY . .
 
 # Publish both de4dot and the de4dot.mcp server targeting net10.0
-RUN dotnet publish -c Release -f net10.0 -o /app/publish/de4dot de4dot/de4dot.csproj
-RUN dotnet publish -c Release -f net10.0 -o /app/publish/mcp de4dot.mcp/de4dot.mcp.csproj
+RUN dotnet publish -c Release -p:RestoreLockedMode=true -f net10.0 -o /app/publish/de4dot de4dot/de4dot.csproj
+RUN dotnet publish -c Release -p:RestoreLockedMode=true -f net10.0 -o /app/publish/mcp de4dot.mcp/de4dot.mcp.csproj
 RUN rm -rf /app/publish/**/*.pdb /app/publish/**/*.xml
 
 # ==============================================================================
 # STAGE 3: Final Runtime Image (.NET 10.0 on Ubuntu / Runtime)
 # ==============================================================================
-FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime:10.0@sha256:939555726cae4c916d212323ac3c0792996dcac2614f00e82cc40fcf059e1af3 AS runtime
 WORKDIR /app
 
 # Install native dependencies required for execution (e.g. globalization, bash)
