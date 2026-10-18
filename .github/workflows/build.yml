@@ -12,7 +12,6 @@ env:
   DOTNET_RUNTIME: net10.0
   SETUP_DOTNET_VERSION: 10.0.x
 
-  BEAENGINE_TAG: v5.3.0
 
 jobs:
   build-windows:
@@ -35,71 +34,6 @@ jobs:
 
           dotnet publish -c Release -f $env:DOTNET_RUNTIME -o publish-$env:DOTNET_RUNTIME de4dot
           Remove-Item publish-$env:DOTNET_RUNTIME\*.pdb, publish-$env:DOTNET_RUNTIME\*.xml
-
-      - name: Build BeaEngine
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          git clone --depth 1 --branch $env:BEAENGINE_TAG https://github.com/BeaEngine/beaengine.git beaengine
-
-          $cmakelists = 'beaengine/CMakeLists.txt'
-
-          # Remove cmake malpractice (would prevent -DCMAKE_MSVC_RUNTIME_LIBRARY)
-          (Get-Content $cmakelists) |
-            Where-Object { $_ -notmatch '\s*list\s*\(APPEND\s+BEA_FLAGS\s+/M' } |
-            Set-Content $cmakelists
-
-          # Compatibility with 2026
-          (Get-Content $cmakelists) |
-            ForEach-Object {
-              if ($_ -match '^\s*cmake_minimum_required\s*\(') {
-                @('cmake_minimum_required(VERSION 3.5)',
-                  'cmake_policy(VERSION 3.5)')
-              } else {
-                $_
-              }
-            } | Set-Content -Encoding UTF8 $cmakelists
-
-          # Win32 for .NET 4.8
-          cmake -S beaengine -B build-beaengine-32 `
-            -A Win32 `
-            -DoptBUILD_DLL=ON `
-            -DoptHAS_OPTIMIZED=ON `
-            -DoptHAS_SYMBOLS=OFF `
-            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
-
-          cmake --build build-beaengine-32 --config Release
-
-          $dll32 = Get-ChildItem -Recurse build-beaengine-32 -Filter BeaEngine*.dll | Select-Object -First 1
-
-          if (-not $dll32) {
-            throw "32-bit BeaEngine.dll not found"
-          }
-
-          Copy-Item $dll32.FullName Release/net48/BeaEngine.dll
-          Copy-Item beaengine/src/COPYING.txt Release/net48/LICENSES/LICENSE.BeaEngine.GPL.txt
-          Copy-Item beaengine/src/COPYING.LESSER.txt Release/net48/LICENSES/LICENSE.BeaEngine.LGPL.txt
-
-          # Win64 for .NET 8+
-          cmake -S beaengine -B build-beaengine-64 `
-            -A x64 `
-            -DoptBUILD_DLL=ON `
-            -DoptHAS_OPTIMIZED=ON `
-            -DoptHAS_SYMBOLS=OFF `
-            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
-
-          cmake --build build-beaengine-64 --config Release
-
-          $dll64 = Get-ChildItem -Recurse build-beaengine-64 -Filter BeaEngine*.dll | Select-Object -First 1
-
-          if (-not $dll64) {
-            throw "64-bit BeaEngine.dll not found"
-          }
-
-          Copy-Item $dll64.FullName publish-$env:DOTNET_RUNTIME/BeaEngine.dll
-          Copy-Item beaengine/src/COPYING.txt publish-$env:DOTNET_RUNTIME/LICENSES/LICENSE.BeaEngine.GPL.txt
-          Copy-Item beaengine/src/COPYING.LESSER.txt publish-$env:DOTNET_RUNTIME/LICENSES/LICENSE.BeaEngine.LGPL.txt
 
       - uses: actions/upload-artifact@v7
         with:
@@ -127,26 +61,6 @@ jobs:
         run: |
           dotnet publish -c Release -f "${DOTNET_RUNTIME}" -o publish-${DOTNET_RUNTIME} de4dot
           rm -rf publish-${DOTNET_RUNTIME}/*.pdb publish-${DOTNET_RUNTIME}/*.xml
-
-      - name: Build BeaEngine
-        run: |
-          set -euo pipefail
-
-          git clone --depth 1 --branch "$BEAENGINE_TAG" https://github.com/BeaEngine/beaengine.git
-
-          cmake -S beaengine -B build64 \
-            -DoptBUILD_DLL=ON \
-            -DoptHAS_OPTIMIZED=ON \
-            -DoptHAS_SYMBOLS=OFF
-
-          cmake --build build64
-
-          so64=$(find build64 -name "libBeaEngine*.so" | head -n 1)
-          [[ -n "$so64" ]] || { echo "libBeaEngine not found"; exit 1; }
-
-          cp "$so64" publish-${DOTNET_RUNTIME}/libBeaEngine.so
-          cp beaengine/src/COPYING.txt publish-${DOTNET_RUNTIME}/LICENSES/LICENSE.BeaEngine.GPL.txt
-          cp beaengine/src/COPYING.LESSER.txt publish-${DOTNET_RUNTIME}/LICENSES/LICENSE.BeaEngine.LGPL.txt
 
       - name: Upload publish folder
         uses: actions/upload-artifact@v7

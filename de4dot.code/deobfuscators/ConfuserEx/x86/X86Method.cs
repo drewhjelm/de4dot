@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
-using de4dot.Bea;
+using Iced.Intel;
 using de4dot.code.deobfuscators.ConfuserEx.x86.Instructions;
 using dnlib.DotNet;
 
@@ -30,100 +29,87 @@ namespace de4dot.code.deobfuscators.ConfuserEx.x86
         {
             this._module = module;
             Instructions = new List<X86Instruction>();
-            ParseInstructions(method);
+            ParseInstructions(ReadCode(method, module));
         }
 
-        private const int X86MaxInsSize = 15;
-
-        private void ParseInstructions(MethodDef method)
+        public X86Method(byte[] code)
         {
-            var rawInstructions = new List<Disasm>();
+            Instructions = new List<X86Instruction>();
+            ParseInstructions(code);
+        }
 
-            while (true)
-            { 
-                byte[] bytes = ReadChunk(method, _module);
-                var buff = new UnmanagedBuffer(bytes);
+        // Bounds for input-controlled native code: bytes read and instructions decoded.
+        private const int MaxCodeBytes = 4096;
+        private const int MaxInstructions = 1024;
 
-                var disasm = new Disasm { Archi = 32, EIP = new IntPtr(buff.Ptr.ToInt64()) };
+        private void ParseInstructions(byte[] code)
+        {
+            var rawInstructions = new List<Instruction>();
+            var decoder = Decoder.Create(32, new ByteArrayCodeReader(code));
 
-                var disasmResult = BeaEngine.Disasm(disasm);
-                if (disasmResult < 0) {
-	                break;
-                }
-
-                _readOffset -= (uint)(X86MaxInsSize - disasmResult); // revert offset back for each byte that was not a part of this instruction
-                var mnemonic = disasm.Instruction.Mnemonic.Trim();
-
-                if (mnemonic == "ret") //TODO: Check if this is the only return in function, e.g. check for jumps that go beyond this address
-                {
-                    Marshal.FreeHGlobal(buff.Ptr);
+            while (rawInstructions.Count < MaxInstructions)
+            {
+                decoder.Decode(out var instr);
+                if (instr.IsInvalid || instr.Length == 0)
                     break;
-                }
-
-                rawInstructions.Add(disasm);
-
-                Marshal.FreeHGlobal(buff.Ptr);
+                if (instr.Mnemonic == Mnemonic.Ret) //TODO: Check if this is the only return in function, e.g. check for jumps that go beyond this address
+                    break;
+                rawInstructions.Add(instr);
+                if (decoder.IP >= (ulong)code.Length)
+                    break;
             }
 
-            while (rawInstructions.Last().Instruction.Mnemonic.Trim() == "pop")
+            while (rawInstructions.Count > 0 && rawInstructions[rawInstructions.Count - 1].Mnemonic == Mnemonic.Pop)
                 rawInstructions.RemoveAt(rawInstructions.Count - 1);
 
             foreach (var instr in rawInstructions)
             {
-                switch (instr.Instruction.Mnemonic.Trim())
+                switch (instr.Mnemonic)
                 {
-                    case "mov":
+                    case Mnemonic.Mov:
                         Instructions.Add(new X86MOV(instr));
                         break;
-                    case "add":
+                    case Mnemonic.Add:
                         Instructions.Add(new X86ADD(instr));
                         break;
-                    case "sub":
+                    case Mnemonic.Sub:
                         Instructions.Add(new X86SUB(instr));
                         break;
-                    case "imul":
+                    case Mnemonic.Imul:
                         Instructions.Add(new X86IMUL(instr));
                         break;
-                    case "div":
+                    case Mnemonic.Div:
                         Instructions.Add(new X86DIV(instr));
                         break;
-                    case "neg":
+                    case Mnemonic.Neg:
                         Instructions.Add(new X86NEG(instr));
                         break;
-                    case "not":
+                    case Mnemonic.Not:
                         Instructions.Add(new X86NOT(instr));
                         break;
-                    case "xor":
+                    case Mnemonic.Xor:
                         Instructions.Add(new X86XOR(instr));
                         break;
-                    case "pop":
+                    case Mnemonic.Pop:
                         Instructions.Add(new X86POP(instr));
                         break;
                     default:
-	                    Logger.w("ConfuserEx native: Unhandled instruction {0}", instr.CompleteInstr.Trim());
+	                    Logger.w("ConfuserEx native: Unhandled instruction {0}", instr.ToString());
 	                    break;
                 }
             }
         }
 
-        private uint _readOffset;
-
-        private byte[] ReadChunk(MethodDef method, ModuleDefMD module)
+        private static byte[] ReadCode(MethodDef method, ModuleDefMD module)
         {
-            var stream = module.Metadata.PEImage.CreateReader();
-            var offset = module.Metadata.PEImage.ToFileOffset(method.RVA);
-
-            byte[] buffer = new byte[X86MaxInsSize];
-
-            if (_readOffset == 0u) //TODO: Don't use hardcoded offset
-                _readOffset = (uint) offset + 20u; // skip to actual calculation code
-
-            stream.Position = _readOffset;
-
-            stream.ReadBytes(buffer, 0, X86MaxInsSize);
-            _readOffset += X86MaxInsSize;
-
-            return buffer;
+            var reader = module.Metadata.PEImage.CreateReader();
+            //TODO: Don't use hardcoded offset
+            long start = (long)(uint)module.Metadata.PEImage.ToFileOffset(method.RVA) + 20; // skip to actual calculation code
+            if (start < 0 || start >= reader.Length)
+                return Array.Empty<byte>();
+            int count = (int)Math.Min(MaxCodeBytes, reader.Length - start);
+            reader.Position = (uint)start;
+            return reader.ReadBytes(count);
         }
 
         public int Execute(params int[] @params)

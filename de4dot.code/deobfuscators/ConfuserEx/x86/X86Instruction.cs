@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using de4dot.Bea;
+using Iced.Intel;
 
 namespace de4dot.code.deobfuscators.ConfuserEx.x86
 {
@@ -21,14 +21,14 @@ namespace de4dot.code.deobfuscators.ConfuserEx.x86
 
 	public enum X86Register
 	{
-		EAX = (int)BeaConstants.ArgumentType.REG0,
-		ECX = (int)BeaConstants.ArgumentType.REG1,
-		EDX = (int)BeaConstants.ArgumentType.REG2,
-		EBX = (int)BeaConstants.ArgumentType.REG3,
-		ESP = (int)BeaConstants.ArgumentType.REG4,
-		EBP = (int)BeaConstants.ArgumentType.REG5,
-		ESI = (int)BeaConstants.ArgumentType.REG6,
-		EDI = (int)BeaConstants.ArgumentType.REG7
+		EAX,
+		ECX,
+		EDX,
+		EBX,
+		ESP,
+		EBP,
+		ESI,
+		EDI
 	}
 
 	public interface IX86Operand
@@ -61,18 +61,28 @@ namespace de4dot.code.deobfuscators.ConfuserEx.x86
 		public IX86Operand[] Operands { get; set; }
 		public abstract void Execute(Dictionary<string, int> registers, Stack<int> localStack);
 
-		public static IX86Operand GetOperand(ArgumentType argument)
+		// Operands come from the managed Iced decoder (no native disassembler). Only 32-bit
+		// general purpose registers and immediates are accepted, as before.
+		public static IX86Operand GetOperand(in Instruction instruction, int operand)
 		{
-			if ((argument.OpType & 0xFFFFFF) == (long)BeaConstants.ArgumentType.CONSTANT_TYPE)
-				return
-					new X86ImmediateOperand(int.Parse(argument.OpMnemonic.TrimEnd('h'),
-						NumberStyles.HexNumber));
-			if (argument.OpType == (long)BeaConstants.ArgumentType.REGISTER_TYPE)
-				if (argument.Registers.type == (long)BeaConstants.ArgumentType.GENERAL_REG)
-					return new X86RegisterOperand((X86Register)argument.Registers.gpr);
-				else
-					throw new Exception("Unexpected register type: " + (BeaConstants.ArgumentType)argument.Registers.type);
-			throw new Exception("Unexepcted operand type: " + (BeaConstants.ArgumentType)argument.OpType);
+			if (operand >= instruction.OpCount)
+				throw new Exception("Missing operand");
+			switch (instruction.GetOpKind(operand))
+			{
+				case OpKind.Register:
+					var reg = instruction.GetOpRegister(operand);
+					if (reg < Register.EAX || reg > Register.EDI)
+						throw new Exception("Unexpected register: " + reg);
+					return new X86RegisterOperand((X86Register)(reg - Register.EAX));
+				case OpKind.Immediate8:
+				case OpKind.Immediate16:
+				case OpKind.Immediate32:
+				case OpKind.Immediate8to16:
+				case OpKind.Immediate8to32:
+					return new X86ImmediateOperand((int)instruction.GetImmediate(operand));
+				default:
+					throw new Exception("Unexpected operand type: " + instruction.GetOpKind(operand));
+			}
 		}
 	}
 }

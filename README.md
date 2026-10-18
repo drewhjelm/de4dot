@@ -65,7 +65,7 @@ Supported obfuscators/packers
 * CodeVeil
 * CodeWall
 * Confuser
-* ConfuserEx - Merged from https://github.com/ViRb3/de4dot-cex , [read the full README by @ViRb3](README-CEx.md) for more info. You may need a native library for [BeaEngine](https://github.com/BeaEngine/beaengine) (version `5.3.0`) for your platform to use the corresponding functionality! If you use another version you may need to recompile with the updated [C# bindings](https://github.com/BeaEngine/beaengine/tree/master/headers/C%23%20headers).
+* ConfuserEx - Merged from https://github.com/ViRb3/de4dot-cex , [read the full README by @ViRb3](README-CEx.md) for more info. Native x86 methods are decoded with the managed [Iced](https://github.com/icedland/iced) library; no native library is needed.
 * CryptoObfuscator
 * DeepSea Obfuscator
 * Dotfuscator
@@ -231,7 +231,7 @@ Docker Containerization
 de4dotEx includes built-in cross-platform Docker containerization. You can build a single, lightweight container and run it in three different modes: as a standard command-line utility, as an HTTP Web API microservice, or as a containerized Stdio MCP server.
 
 We offer two different Docker strategies depending on your needs:
-1. **Strategy A (Native .NET 8.0 - Recommended):** Extremely fast, lightweight, and cross-platform. It automatically compiles the native C++ `BeaEngine` disassembler library inside the container so that advanced ConfuserEx deobfuscation works natively on Linux and macOS (ARM64/x64).
+1. **Strategy A (Native .NET 8.0 - Recommended):** Extremely fast, lightweight, and cross-platform. Advanced ConfuserEx deobfuscation works natively on Linux and macOS (ARM64/x64); x86 decoding uses the managed Iced library.
 2. **Strategy B (Wine + .NET Framework 4.8):** Emulates a full Windows environment to support dynamic JIT-hook protectors (like ILProtector and Agile.NET) which rely on Windows-native memory APIs (`VirtualAlloc`, `VirtualProtect`).
 
 Strategy A: Native .NET 8.0 Linux Container (Recommended)
@@ -329,7 +329,7 @@ Docker Troubleshooting & Tips
 -----------------------------
 
 ### Apple Silicon / ARM64 Mac Hosts (M1 / M2 / M3)
-* **Strategy A (Native):** Runs flawlessly on ARM64 hosts. Docker automatically targets ARM64 and compiles .NET 8.0 and BeaEngine natively for your CPU architecture.
+* **Strategy A (Native):** Runs flawlessly on ARM64 hosts. Docker automatically targets ARM64 and builds .NET natively for your CPU architecture.
 * **Strategy B (Wine):** Because Strategy B installs standard x86 `.NET Framework 4.8` components, you **MUST** force Docker to build and run the image targeting the Intel platform (`linux/amd64`). Docker Desktop on macOS will automatically translate the CPU instructions using Rosetta 2 / QEMU:
   ```bash
   # Build on ARM64 Mac using Intel emulation:

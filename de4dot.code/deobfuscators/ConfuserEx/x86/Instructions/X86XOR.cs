@@ -1,15 +1,15 @@
 ﻿using System.Collections.Generic;
-using de4dot.Bea;
+using Iced.Intel;
 
 namespace de4dot.code.deobfuscators.ConfuserEx.x86.Instructions
 {
     class X86XOR : X86Instruction
     {
-        public X86XOR(Disasm rawInstruction)
+        public X86XOR(in Instruction rawInstruction)
         {
             Operands = new IX86Operand[2];
-            Operands[0] = GetOperand(rawInstruction.Operand1);
-            Operands[1] = GetOperand(rawInstruction.Operand2);
+            Operands[0] = GetOperand(rawInstruction, 0);
+            Operands[1] = GetOperand(rawInstruction, 1);
         }
 
         public override X86OpCode OpCode { get { return X86OpCode.XOR; } }

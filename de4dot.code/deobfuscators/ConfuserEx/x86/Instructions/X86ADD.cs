@@ -1,15 +1,15 @@
 ﻿using System.Collections.Generic;
-using de4dot.Bea;
+using Iced.Intel;
 
 namespace de4dot.code.deobfuscators.ConfuserEx.x86.Instructions
 {
     class X86ADD : X86Instruction
     {
-        public X86ADD(Disasm rawInstruction)
+        public X86ADD(in Instruction rawInstruction)
         {
             Operands = new IX86Operand[2];
-            Operands[0] = GetOperand(rawInstruction.Operand1);
-            Operands[1] = GetOperand(rawInstruction.Operand2);
+            Operands[0] = GetOperand(rawInstruction, 0);
+            Operands[1] = GetOperand(rawInstruction, 1);
         }
 
         public override X86OpCode OpCode { get { return X86OpCode.ADD; } }

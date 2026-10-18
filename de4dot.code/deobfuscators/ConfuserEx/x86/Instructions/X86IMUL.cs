@@ -1,16 +1,22 @@
 ﻿using System.Collections.Generic;
-using de4dot.Bea;
+using Iced.Intel;
 
 namespace de4dot.code.deobfuscators.ConfuserEx.x86.Instructions
 {
     class X86IMUL : X86Instruction
     {
-        public X86IMUL(Disasm rawInstruction)
+        public X86IMUL(in Instruction rawInstruction)
         {
             Operands = new IX86Operand[3];
-            Operands[0] = GetOperand(rawInstruction.Operand1);
-            Operands[1] =GetOperand( rawInstruction.Operand2);
-            Operands[2] = GetOperand(rawInstruction.Operand3);
+            Operands[0] = GetOperand(rawInstruction, 0);
+            if (rawInstruction.OpCount == 2) {
+                // imul r32, r/m32  ==  r32 = r32 * r/m32
+                Operands[1] = Operands[0];
+                Operands[2] = GetOperand(rawInstruction, 1);
+            } else {
+                Operands[1] = GetOperand(rawInstruction, 1);
+                Operands[2] = GetOperand(rawInstruction, 2);
+            }
         }
 
         public override X86OpCode OpCode { get { return X86OpCode.IMUL; } }

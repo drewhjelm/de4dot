@@ -1,15 +1,15 @@
 ﻿using System.Collections.Generic;
-using de4dot.Bea;
+using Iced.Intel;
 
 namespace de4dot.code.deobfuscators.ConfuserEx.x86.Instructions
 {
     class X86DIV : X86Instruction
     {
-        public X86DIV(Disasm rawInstruction)
+        public X86DIV(in Instruction rawInstruction)
         {
-            Operands = new IX86Operand[2];
-            Operands[0] = GetOperand(rawInstruction.Operand1);
-            Operands[1] = GetOperand(rawInstruction.Operand2);
+            // div r/m32 has one explicit operand (EDX:EAX is implicit). Execute() is a no-op, as before.
+            Operands = new IX86Operand[1];
+            Operands[0] = GetOperand(rawInstruction, 0);
         }
 
         public override X86OpCode OpCode { get { return X86OpCode.DIV; } }
